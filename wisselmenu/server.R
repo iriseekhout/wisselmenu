@@ -2,10 +2,65 @@
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
 
+  ## pick ----
+  output$pick <- reactive({
+    FALSE
+    if(input$method == "pick") TRUE
+  })
+  outputOptions(output, "pick", suspendWhenHidden = FALSE)
+
+  output$gerechten <- renderDataTable({
+    menubase %>% select(genre, naam, tijd, kcal)
+  })
+
+  ## pick ----
+  output$select <- reactive({
+    FALSE
+    if(input$method == "select") TRUE
+  })
+  outputOptions(output, "select", suspendWhenHidden = FALSE)
+
+  selectgenres <- reactive({
+    lapply(as.list(input$weekdays), function(q){
+      selectInput(inputId = q,
+                  label = q,
+                  choices = menubase %>% select(genre) %>% unique(),
+                  width ="50%",
+                  )
+                  })
+  })
+
+
+  output$select_genres <- renderUI({
+    selectgenres()
+  })
+
+  ## random nothing extra -----
+
     menu1 <- reactive({
-        set.seed(seed = as.numeric(input$week))
-        menubase[sample(1:nrow(menubase),size = length(input$weekdays)),] %>%
-            mutate(dag = input$weekdays)
+      menu <- data.frame(dag = input$weekdays, naam = NA, tijd = NA, kcal = NA, recept = NA)
+      set.seed(seed = as.numeric(input$week))
+
+      if(input$method == "random"){
+      menu <- menubase[sample(1:nrow(menubase),size = length(input$weekdays)),] %>%
+        mutate(dag = input$weekdays)
+      }
+      if(input$method == "pick" & length(input$gerechten_rows_selected) >0){
+        menu <- menubase[input$gerechten_rows_selected,] %>%
+          mutate(dag = input$weekdays[1:length(input$gerechten_rows_selected)])
+      }
+      if(input$method == "select"){
+        selections <- lapply(as.list(input$weekdays), function(q){
+                        daggenre <- menubase %>% filter(genre == input[[q]]) %>%
+                          sample_n(size = 1) %>%
+                          mutate(dag = q)
+                      })
+        menu <- do.call('rbind', selections)
+
+      }
+
+      menu
+
     })
 
     output$menu <- function() {
@@ -18,7 +73,7 @@ server <- function(input, output, session) {
 
     ingredienten1 <- reactive({
         menu1() %>%
-            full_join(recepten) %>%
+            full_join(recepten, by = "naam") %>%
             mutate(aantal = as.numeric(pp) * input$personen) %>%
         select(dag, aantal, unit, ingredienten)
     })
@@ -164,51 +219,98 @@ server <- function(input, output, session) {
         kable_styling("striped", full_width = F)
     }
 
-    boodschappen <- reactive({
-      menu1() %>%
-        full_join(recepten) %>%
-        left_join(producten) %>%
-        select(pp, unit, ingredienten, categorie) %>%
-        group_by(categorie,ingredienten, unit) %>%
+
+    #misschien nog toevoegen dat sommige dingen snel geselecteerd kunnen worden.
+    output$boodschappenextra <- renderDataTable(
+      andereboodschappen %>% select(categorie, producten)
+    )
+
+
+    boodschappenlijst <- reactive({
+      lijst <-
+      recepten %>%
+        filter(naam %in% menu1()$naam) %>%
+        left_join(producten, by = "ingredienten") %>%
+        rename(producten = ingredienten) %>%
+        group_by(categorie,producten, unit) %>%
         summarise(aantal = sum(as.numeric(pp) * input$personen),
                   .groups = "drop") %>%
-        select(categorie,aantal, unit, ingredienten)
+        arrange(categorie) %>%
+        select(categorie,aantal, unit, producten)
+      if(length(input$boodschappenextra_rows_selected) > 0){
+      lijst <- lijst %>%
+        bind_rows({andereboodschappen %>%
+          slice(input$boodschappenextra_rows_selected)}) %>%
+        arrange(categorie)
+      }
+      lijst
     })
+
+    # store 'empty' tibble
+    user_table <-
+      recepten %>%
+      left_join(producten, by = "ingredienten") %>%
+      rename(aantal = pp,
+             producten = ingredienten) %>%
+      select(categorie, aantal, unit, producten) %>%
+      slice(1) %>%
+      # transpose the first row of test into two columns
+      gather(key = "column_name", value = "value") %>%
+      # replace all values with ""
+      mutate(value = "") %>%
+      # reshape the data from long to wide
+      spread(column_name, value) %>%
+      # rearrange the column order to match that of test
+      select(categorie, aantal, unit, producten)
+
+
     output$boodschappen <-
         renderDataTable(
-        boodschappen(),
-        extensions="Buttons", options=list(dom="Bfrtip",
-                                           lengthMenu = list(c(5, 15, -1), c('5', '15', 'All')),
-                                           pageLength = -1,
-                                           buttons = list(c("copy", "csv", "excel", "pdf", "print"),
-                                                          list(
-
-                                                          extend = "collection",
-                                                          text = 'Show less',
-                                                          action = DT::JS("function ( e, dt, node, config ) {
+        boodschappenlijst(),
+        extensions="Buttons",
+        editable = TRUE,
+        rownames = FALSE,
+        server = FALSE,
+        options=list(dom="Bfrtip",
+                     lengthChange = TRUE,
+                     #lengthMenu = list(c(5, 15,-1), c('5', '15', 'All')),
+                     pageLength = -1,
+                     buttons = list(
+                       c("copy", "csv", "excel", "pdf", "print"),
+                       list(
+                         extend = "collection",
+                         text = 'Show less',
+                         action = DT::JS(
+                           "function ( e, dt, node, config ) {
                                     dt.page.len(15);
                                     dt.ajax.reload();
-                                }")
-                                           ),
-                                           list(
-
-                                             extend = "collection",
-                                             text = 'Show all',
-                                             action = DT::JS("function ( e, dt, node, config ) {
+                                }"
+                         )
+                       ),
+                       list(
+                         extend = "collection",
+                         text = 'Show all',
+                         action = DT::JS(
+                           "function ( e, dt, node, config ) {
                                     dt.page.len(-1);
                                     dt.ajax.reload();
-                                }")
-                                           )
-                                           )
+                                }"
+                         )
+                       )
+                     )
         )
         )
 
 
-    # # value boxes
-    # output$calories <- renderValueBox({
-    #     valueBox(paste0(nutrition_df()$Value[nutrition_df()$NutrientID == 208], "kcal"),
-    #              "Calories", icon = icon("fire"), color = "yellow")
-    # })
+
+    # store a proxy of tbl
+    proxy <- dataTableProxy(outputId = "boodschappen")
+
+    # each time addData is pressed, add user_table to proxy
+    observeEvent(eventExpr = input$addData, {
+      proxy %>%
+        addRow(user_table)
+    })
 
 
 }

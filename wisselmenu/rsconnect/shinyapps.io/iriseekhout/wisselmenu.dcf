@@ -1,0 +1,12 @@
+name: wisselmenu
+title: wisselmenu
+username:
+account: iriseekhout
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 4155864
+bundleId: 4617571
+url: https://iriseekhout.shinyapps.io/wisselmenu/
+when: 1621454937.46974
+asMultiple: FALSE
+asStatic: FALSE

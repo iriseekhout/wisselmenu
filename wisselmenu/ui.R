@@ -1,17 +1,21 @@
 library(shiny)
 library(dplyr)
 library(DT)
-library(ggplot2)
 library(shinydashboard)
 library(plotly)
 library(shiny)
 library(kableExtra)
 library(knitr)
+library(tidyr)
 
 
 ui <- dashboardPage(
     dashboardHeader(title = "Wissel menu"),
     dashboardSidebar(
+        selectInput("method",
+                    label = "Menu samenstellen",
+                    choices = c("pick", "select", "random")),
+
         dateInput(
             inputId = "week",
             label = "Week",
@@ -39,21 +43,40 @@ ui <- dashboardPage(
 
     ),
     dashboardBody(
+
         fluidRow(
-           # valueBoxOutput("calories"),
-            #valueBoxOutput("over_nutrient"),
-            #valueBoxOutput("rich_nutrient")
+            conditionalPanel(
+                condition = "output.pick",
+            box(title = "Selecteer gerechten",
+                solidHeader = T,
+                width = 9,
+                collapsible = T,
+                dataTableOutput("gerechten"))
+
         ),
-        fluidRow(
-            box(title = "Menu",
+        conditionalPanel(
+            condition = "output.select",
+            box(title = "Selecteer soort gerecht per dag",
+                solidHeader = T,
+                width = 9,
+                collapsible = T,
+                uiOutput("select_genres"))
+
+        ),
+        box(title = "Menu",
                 solidHeader = T,
                 width = 3,
                 collapsible = T,
                 tableOutput("menu"),
 
-               ),
-            tabBox(
-                width = 9,
+               )
+        ),
+           fluidRow(
+               box( title = "Week menu",
+                    collapsible = T,
+                    width = 12,
+               tabBox(
+                width = 12,
                 tabPanel("Maandag",
                          valueBoxOutput("ma_menu"),
                          valueBoxOutput("ma_recept"),
@@ -85,10 +108,21 @@ ui <- dashboardPage(
                          tableOutput("zo_ingredienten"))
 
             )
+            )
             ),
         fluidRow(
-            box(title = "Boodschappen", solidHeader = T,
+            box(title = "Extra boodschappen toevoegen",
+                solidHeader = T,
                 width = 6, collapsible = T,
+                p("Door items uit de onderstaande lijst aan te klikken worden ze toegevoegd aan de boodschappenlijst."),
+                dataTableOutput("boodschappenextra")
+                ),
+            box(title = "Boodschappenlijst", solidHeader = T,
+                width = 6, collapsible = T,
+                p("Met de knop hieronder kun je zelf boodschappen toevoegen aan de lijst. Doe dit op het laatst want bij selecteren uit lijst links verdwijnen de extra entries."),
+                actionButton("addData", "Items toevoegen"),
+                br(),
+                br(),
                 dataTableOutput("boodschappen")
                )
         )
