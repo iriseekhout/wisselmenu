@@ -4,17 +4,9 @@ library(openxlsx)
 library(dplyr)
 library(tidyr)
 
-dat <- read.xlsx("data-raw/data/recepten.xlsx", sheet = "recepten")
+menubase <- read.xlsx("data-raw/data/recepten.xlsx", sheet = "recept")
 
-
-menubase <- dat %>% group_by(genre, naam, recept, tijd, kcal) %>%
-  summarize(n = n(),
-            .groups = "drop") %>% select(-n)
-
-
-recepten <- dat %>% select(naam, pp, unit, ingredienten)
-
-producten <- read.xlsx("data-raw/data/recepten.xlsx", sheet = "producten")
+recepten <- read.xlsx("data-raw/data/recepten.xlsx", sheet = "ingredienten")
 
 producten <- read.xlsx("data-raw/data/recepten.xlsx", sheet = "producten")
 

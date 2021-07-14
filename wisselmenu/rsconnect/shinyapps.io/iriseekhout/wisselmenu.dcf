@@ -5,8 +5,9 @@ account: iriseekhout
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 4155864
-bundleId: 4617571
+bundleId: 4818736
 url: https://iriseekhout.shinyapps.io/wisselmenu/
-when: 1621454937.46974
+when: 1626268552.89103
+lastSyncTime: 1626268552.89103
 asMultiple: FALSE
 asStatic: FALSE
